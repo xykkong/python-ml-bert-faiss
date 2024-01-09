@@ -1,8 +1,14 @@
-# video-transcription-bert-faiss
+# python-bert-faiss
+
+The high level goal is to take a series of video files, transcribe it and make the transcript searchable using embedding based search.
+● Take input as a set of video files (.mp4), run it through Speech to text engine (S2T).
+● Chunk the output transcript, vectorize it using open source text embedding models (BERT).
+● Store the embeddings of the transcript chunks in an open source graph database which can support vector search (FAISS).
+● On the querying side, the user input is a text query, which should be used to search the top K results against the vector DB.
 
 # Installation
 
-##Creating and activating your virtual env
+## Creating and activating your virtual env
 ```
   python -m venv venv
   source venv/bin/activate
