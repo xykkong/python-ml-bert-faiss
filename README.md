@@ -1,4 +1,4 @@
-# python-bert-faiss
+# python-ml-bert-faiss
 
 The high level goal is to take a series of video files, transcribe it and make the transcript searchable using embedding based search.
 ● Take input as a set of video files (.mp4), run it through Speech to text engine (S2T).
