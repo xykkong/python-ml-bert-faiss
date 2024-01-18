@@ -6,7 +6,35 @@ The high-level goal is to take a series of video files, transcribe it, and make 
 - Store the embeddings of the transcript chunks in an open-source graph database that can support vector search (FAISS).
 - On the querying side, the user input is a text query, which should be used to search the top K results against the vector DB.
 
-# Installation
+# Running with Docker
+
+## Building Image
+```
+    docker build -t mlsearch .
+```
+
+## Generate transcript from video. This can take a long time to run, specially using a free license.
+```
+    docker run -v .:/app/ mlsearch transcript YOUR_VIDEO.mp4
+```
+
+## Indexing a transcript.
+```
+
+    docker run -v .:/app/ mlsearch index sample.txt 
+```
+
+## Querying a string
+```
+    docker run -v .:/app/ mlsearch search -q "united states" -i sample.index -k 3
+```
+
+## Using help
+```
+    docker run -v .:/app/ mlsearch search --help
+``````
+
+# Running locally
 
 ## Creating and activating your virtual env
 ```
@@ -19,24 +47,23 @@ The high-level goal is to take a series of video files, transcribe it, and make 
     pip install -r requirements.txt
 ```
 
-## Indexing a video. This can take a long time to run, specially if you are using a free license
+## Generate transcript from video. This can take a long time to run, specially using a free license.
 ```
-    python main.py index video1.mp4
+    python main.py transcript YOUR_VIDEO.mp4
 ```
 
-# Running
-
-## In case you already have the transcription of the video, you can skip transcription step
+## Indexing a transcript.
 ```
-    python main.py index video1.mp4 --skip 
+    python main.py index sample.txt
 ```
 
 ## Querying a string
 ```
-    python main.py search -q "united states" -i video1.index -k 3
+    python main.py search -q "united states" -i sample.index -k 3
 ```
 
 ## Using help
 ```
     python main.py search --help
 ```
+

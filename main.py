@@ -10,10 +10,12 @@ import ast
 from loguru import logger
 from typing_extensions import Annotated
 from tabulate import tabulate
+from pydub.silence import split_on_silence
+from time import sleep
 
 app = typer.Typer()
 
-DATA_PATH = "./data"
+DATA_PATH = "data"
 
 
 def convert_mp4_to_wav(video_file: str, output_file: str) -> None:
@@ -23,27 +25,54 @@ def convert_mp4_to_wav(video_file: str, output_file: str) -> None:
     audio.export(f"{DATA_PATH}/{output_file}", format="wav")
 
 
+def split_audio_in_chunks(audio_file: str):
+    logger.info("Started split_audio_in_chunks")
+    audio = AudioSegment.from_wav(audio_file)
+    # Split audio where silence is 700ms or greater and get chunks. This need to be adjusted depending on the audio
+    return split_on_silence(audio, min_silence_len=700, silence_thresh=audio.dBFS-14, keep_silence=700)
+
+
 def transcript_audio(audio_file: str, output_file: str) -> None:
     logger.info("Started transcript_audio")
+
     # Initialize recognizer
     recognizer = sr.Recognizer()
+    transcript = ""
+    counter = 1
 
-    with sr.AudioFile(f"{DATA_PATH}/{audio_file}") as source:
-        # read the entire audio file
-        audio_text = recognizer.record(source)
+    for audio_chunk in split_audio_in_chunks(f"{DATA_PATH}/{audio_file}"):
+        logger.info(f"Transcripting part {counter}")
+        counter += 1
+        audio_chunk.export(f"{DATA_PATH}/temp", format="wav")
 
-    transcript = recognizer.recognize_google(audio_text)
+        with sr.AudioFile(f"{DATA_PATH}/temp") as source:
+            audio = recognizer.record(source)
 
+            while True:
+                try:
+                    text = recognizer.recognize_google(audio)
+                except sr.UnknownValueError as ex:
+                    logger.error(f"Speech Recognition could not understand audio: {ex}")
+                    break
+                except Exception as ex:
+                    logger.error(f"Error {ex}. Retrying in 10 sec...")
+                    sleep(10)
+                else:
+                    logger.info(text)
+                    text = f"{text}. "
+                    transcript += text
+                    break
+        break
     # Save the transcript
     with open(f"{DATA_PATH}/{output_file}", "w") as file:
         file.write(transcript)
 
 
-def split_transcript_in_sentences(file_path: str, chunk_size: int = 1024) -> list[str]:
+def split_transcript_in_sentences(transcript_file: str, chunk_size: int = 1024) -> list[str]:
     logger.info("Started split_transcript_in_sentences")
     sentences = []
     buffer = ''
-    with open(f"{DATA_PATH}/{file_path}", 'r') as file:
+    with open(f"{DATA_PATH}/{transcript_file}", 'r') as file:
         while True:
             chunk = file.read(chunk_size)
             if not chunk:
@@ -114,15 +143,21 @@ def search_top_k(sentences_df, index, embeddings, k: int = 3):
 
 
 @app.command()
-def index(video_file: str, skip_transcription: Annotated[bool, typer.Option("--skip")] = False):
-    logger.info("Started index command")
+def transcript(video_file: str):
+    logger.info("Started transcript command")
     prefix = video_file.split('.')[0]
     audio_file = f"{prefix}_audio.wav"
-    transcript_file = f"{prefix}_transcript.txt"
+    transcript_file = f"{prefix}.txt"
+    convert_mp4_to_wav(video_file, output_file=audio_file)
+    transcript_audio(audio_file=audio_file, output_file=transcript_file)
+    logger.info(f"{transcript_file} generated")
+
+
+@app.command()
+def index(transcript_file: str):
+    logger.info("Started index command")
+    prefix = transcript_file.split('.')[0]
     index_file = f"{prefix}.index"
-    if not skip_transcription:
-        convert_mp4_to_wav(video_file, output_file=audio_file)
-        transcript_audio(audio_file=audio_file, output_file=transcript_file)
     sentences = split_transcript_in_sentences(transcript_file)
     input_ids, attention_mask = encoding_sentences(sentences)
     embeddings = generate_embeddings(input_ids, attention_mask)
